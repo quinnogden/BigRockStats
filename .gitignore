@@ -4,3 +4,9 @@ node_modules/
 dist/
 build/
 .DS_Store
+
+# Statbot exports: real member usernames, Discord IDs and activity totals.
+# This repo is public — these stay local.
+csvStats/
+
+.claude/settings.local.json
