@@ -1,0 +1,21 @@
+{
+  "name": "big-rock-stats",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.16.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "pnpm --filter @brs/db db:generate",
+    "db:migrate": "pnpm --filter @brs/db db:migrate",
+    "dev:collector": "pnpm --filter @brs/collector dev",
+    "dev:web": "pnpm --filter @brs/web dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

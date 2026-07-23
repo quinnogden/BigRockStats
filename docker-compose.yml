@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bigrock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bigrock}
+      POSTGRES_DB: ${POSTGRES_DB:-bigrockstats}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bigrock} -d ${POSTGRES_DB:-bigrockstats}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: brings the schema up to date before anything reads or writes.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/collector/Dockerfile
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-bigrock}:${POSTGRES_PASSWORD:-bigrock}@postgres:5432/${POSTGRES_DB:-bigrockstats}
+    command: ["pnpm", "--filter", "@brs/db", "db:migrate"]
+
+  collector:
+    build:
+      context: .
+      dockerfile: apps/collector/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-bigrock}:${POSTGRES_PASSWORD:-bigrock}@postgres:5432/${POSTGRES_DB:-bigrockstats}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
+    # Exactly one Collector may hold the gateway connection — a second would
+    # record every event twice. That is enforced by a Postgres advisory lock
+    # taken at startup, not by anything in this file: a second instance exits
+    # rather than double-counting. Do not scale this service.
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-bigrock}:${POSTGRES_PASSWORD:-bigrock}@postgres:5432/${POSTGRES_DB:-bigrockstats}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+  # Used only by `pnpm test`. Kept separate so a test run can never truncate
+  # the real dataset — voice history is unrecoverable.
+  postgres-test:
+    image: postgres:17-alpine
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: bigrock
+      POSTGRES_PASSWORD: bigrock
+      POSTGRES_DB: bigrockstats_test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bigrock -d bigrockstats_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

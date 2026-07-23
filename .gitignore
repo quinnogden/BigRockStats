@@ -3,6 +3,9 @@ node_modules/
 .env.local
 dist/
 build/
+.next/
+*.tsbuildinfo
+next-env.d.ts
 .DS_Store
 
 # Statbot exports: real member usernames, Discord IDs and activity totals.
